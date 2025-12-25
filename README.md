@@ -1,26 +1,34 @@
 # Diabetes Risk Screening using Machine Learning
 
-This project is an end-to-end machine learning application that predicts the risk of diabetes based on patient health indicators. The goal of this project is to demonstrate how a machine learning model can be taken from raw data to a usable application with proper evaluation, interpretation, and deployment.
+This project is a complete machine learning application that predicts the risk of diabetes based on basic patient health information. The main goal of this project is to show how a machine learning model can be built, evaluated, and converted into a working application that people can actually use.
 
-The project emphasizes practical ML system design rather than just model training.
+Instead of focusing only on model accuracy, this project focuses on the **end-to-end ML workflow** — data preprocessing, model training, evaluation, decision thresholding, and deployment using a simple user interface.
 
-This application is built for learning and demonstration purposes only and is not intended to provide medical advice.
+This project is created for **learning and demonstration purposes only** and is not intended to provide medical advice.
 
----
+## What This Application Does
+
+The application allows a user to enter basic health details such as glucose level, BMI, age, and insulin values. Based on these inputs, the machine learning model estimates the **probability of diabetes risk**.
+
+The app then:
+- Shows the predicted risk as a probability value
+- Categorizes the result into **Lower Risk**, **Moderate Risk**, or **Higher Risk**
+- Displays basic information about the model and evaluation metrics
+- Warns the user when medically invalid values (like zero glucose or BMI) are entered
+
+This simulates how a real-world **screening or decision-support tool** might work.
 
 ## Problem Statement
 
-Diabetes is a chronic condition that benefits from early screening and risk awareness. Using historical patient data, this project aims to build a binary classification model that estimates whether a person is at higher or lower risk of diabetes based on medical features such as glucose level, BMI, age, and insulin.
+Diabetes is a long-term condition where early screening can help with preventive care. Using historical patient data, this project builds a **binary classification model** that predicts whether a person is likely to be at higher or lower risk of diabetes.
 
 Target definition:
-- 1 → Higher diabetes risk
-- 0 → Lower diabetes risk
-
----
-
+- `1` → Higher diabetes risk  
+- `0` → Lower diabetes risk
+  
 ## Dataset
 
-The project uses the PIMA Indians Diabetes dataset, which contains patient-level medical attributes:
+The project uses the **PIMA Indians Diabetes dataset**, which contains medical data for female patients. The dataset includes the following features:
 
 - Pregnancies  
 - Glucose  
@@ -32,107 +40,91 @@ The project uses the PIMA Indians Diabetes dataset, which contains patient-level
 - Age  
 - Outcome (target variable)
 
-Some features contain medically invalid zero values (for example, glucose or BMI equal to zero). These values are treated as missing during preprocessing.
+Some medical measurements in the dataset contain zero values that are not realistic in practice (for example, glucose or BMI equal to zero). These values are treated as missing during preprocessing.
+
+## Data Preprocessing
+
+Before training the model, the following preprocessing steps are performed:
+
+- Medically invalid zero values are replaced with missing values
+- Missing values are filled using median imputation
+- All numerical features are standardized to ensure fair contribution to the model
+
+These steps help make the model more reliable and closer to real-world conditions.
 
 ---
 
-## Approach
+## Model Building
 
-The project follows a complete machine learning lifecycle.
+A **Support Vector Machine (SVM)** classifier is used for this project.
 
-First, the data is cleaned by replacing medically invalid zero values with missing values and imputing them using median statistics. All numerical features are standardized to support distance-based models.
+The model is built using a pipeline that includes:
+- Data imputation
+- Feature scaling
+- SVM classification
 
-A Support Vector Machine (SVM) classifier is trained using a pipeline that includes preprocessing and modeling steps. Hyperparameters such as kernel type, regularization strength, and class weighting are tuned using cross-validation.
+Model hyperparameters such as kernel type, regularization strength, and class weighting are tuned using cross-validation.
 
-To make predictions more interpretable, the model is calibrated to output meaningful probability scores. Instead of relying on a fixed 0.5 decision threshold, the classification threshold is tuned using recall-based evaluation, which is more appropriate for screening-style problems.
+To make the predictions easier to interpret, the model is **calibrated** so that it outputs probability scores instead of just class labels.
 
----
+## Decision Threshold Selection
+
+Instead of using a default threshold of 0.5, the classification threshold is selected based on **recall-oriented evaluation**. This approach is more suitable for screening problems, where missing a high-risk case can be more costly than a false alarm.
+
+The chosen threshold is saved and reused by the application.
 
 ## Model Evaluation
 
-The model is evaluated using multiple metrics to understand its real-world behavior:
+The model is evaluated using multiple metrics to understand its behavior from different angles:
 
 - ROC-AUC  
 - Precision-Recall AUC  
-- Precision, Recall, and Accuracy  
+- Accuracy  
+- Precision and Recall  
 - Confusion Matrix  
 
-Evaluation results are saved and reused by the application to improve transparency. Threshold tuning helps balance false negatives and false positives, which is especially important in healthcare-style screening problems.
+Evaluation results are stored and displayed inside the application for transparency.
 
----
+## Streamlit Deployment (Current Implementation)
 
-## Streamlit Deployment (User Interface)
+The trained and calibrated model is deployed using **Streamlit**, providing a simple web-based user interface.
 
-The trained and calibrated model is deployed using Streamlit, providing an interactive web interface.
+The Streamlit app:
+- Collects patient input through form fields
+- Validates suspicious or invalid inputs
+- Runs the trained ML model for inference
+- Displays probability-based risk results
+- Shows model metrics and configuration in the sidebar
 
-The Streamlit application allows users to:
-- Enter patient health information
-- Receive an estimated diabetes risk probability
-- View screening results categorized as lower, moderate, or higher risk
-- See model details and evaluation metrics in the sidebar
-
-This demonstrates how a machine learning model can be packaged as a usable decision-support tool rather than remaining as a notebook.
-
----
-
-## API Design (FastAPI)
-
-In addition to the Streamlit interface, this project includes a FastAPI-based inference service (`api.py`).
-
-The API:
-- Loads the same trained and calibrated model used by Streamlit
-- Exposes prediction endpoints for programmatic access
-- Automatically generates API documentation using Swagger (OpenAPI)
-- Separates model inference from the user interface
-
-The API is currently used for local development and architectural demonstration.
-
----
-
-## Cloud Deployment Roadmap (AWS)
-
-The project is structured to support future cloud deployment. Planned extensions include:
-
-- Containerizing the FastAPI service using Docker
-- Deploying the API on AWS (EC2, ECS, or Elastic Beanstalk)
-- Storing trained model artifacts in Amazon S3
-- Using the Streamlit app as a frontend consuming the cloud-hosted API
-
-While the current deployment focuses on Streamlit for simplicity, the presence of the API layer demonstrates readiness for scalable, production-oriented ML deployment.
-
----
+This deployment demonstrates how a machine learning model can move beyond notebooks and be used in an interactive application.
 
 ## Project Structure
 
-- app.py – Streamlit application for interactive inference  
-- api.py – FastAPI service for model inference  
-- train.py – Model training and hyperparameter tuning  
-- evaluate.py – Threshold selection and evaluation  
-- models/ – Saved model and threshold artifacts  
-- reports/ – Stored evaluation metrics  
-- requirements.txt – Project dependencies  
+- `app.py` – Streamlit application used for prediction and visualization  
+- `train.py` – Script used to train and tune the machine learning model  
+- `evaluate.py` – Script used to select decision thresholds and evaluate performance  
+- `models/` – Saved model and threshold files  
+- `reports/` – Stored evaluation metrics  
+- `requirements.txt` – Project dependencies  
 
----
+## What This Project Demonstrates
 
-## Key Learnings
+- Understanding of the full machine learning workflow  
+- Handling of real-world data quality issues  
+- Use of probability-based predictions instead of hard labels  
+- Importance of threshold selection in classification problems  
+- Ability to deploy ML models as usable applications
+  
+## Future Scope (Planned Improvements)
 
-- Real-world data requires careful preprocessing and validation  
-- Probability calibration improves interpretability of ML predictions  
-- Threshold selection is critical in screening-style applications  
-- Separating UI and backend improves scalability and system design  
-- Deployment reveals usability and modeling limitations early  
+As a future enhancement, this project can be extended in the following simple and practical ways:
 
----
+- Create a basic backend API using FastAPI for model predictions
+- Package the API using Docker
+- Deploy the Docker container on AWS (for example, on an EC2 instance)
+- Connect the Streamlit app to the AWS-hosted API instead of loading the model locally
 
-## Future Improvements
-
-- Add baseline models for comparison (Logistic Regression)
-- Perform feature importance analysis
-- Deploy the FastAPI service on AWS
-- Add monitoring and logging for production use
-
----
-
+These improvements are planned to explore **basic cloud deployment concepts using Docker and AWS**, without adding unnecessary complexity.
 ## Disclaimer
 
 This project is for educational and demonstration purposes only. It is not intended for medical diagnosis or clinical decision-making.
