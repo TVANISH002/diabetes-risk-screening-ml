@@ -1,6 +1,6 @@
 [theme]
-primaryColor="#2D6CDF"
+primaryColor="#2563EB"            # Clinical blue
 backgroundColor="#FFFFFF"
-secondaryBackgroundColor="#F5F7FA"
-textColor="#111827"
+secondaryBackgroundColor="#F1F5F9"
+textColor="#0F172A"
 font="sans serif"
