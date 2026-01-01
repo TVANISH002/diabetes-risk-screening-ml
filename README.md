@@ -1,130 +1,142 @@
-# Diabetes Risk Screening using Machine Learning
-
-This project is a complete machine learning application that predicts the risk of diabetes based on basic patient health information. The main goal of this project is to show how a machine learning model can be built, evaluated, and converted into a working application that people can actually use.
-
-Instead of focusing only on model accuracy, this project focuses on the **end-to-end ML workflow** — data preprocessing, model training, evaluation, decision thresholding, and deployment using a simple user interface.
-
-This project is created for **learning and demonstration purposes only** and is not intended to provide medical advice.
-
-## What This Application Does
-
-The application allows a user to enter basic health details such as glucose level, BMI, age, and insulin values. Based on these inputs, the machine learning model estimates the **probability of diabetes risk**.
-
-The app then:
-- Shows the predicted risk as a probability value
-- Categorizes the result into **Lower Risk**, **Moderate Risk**, or **Higher Risk**
-- Displays basic information about the model and evaluation metrics
-- Warns the user when medically invalid values (like zero glucose or BMI) are entered
-
-This simulates how a real-world **screening or decision-support tool** might work.
-
-## Problem Statement
-
-Diabetes is a long-term condition where early screening can help with preventive care. Using historical patient data, this project builds a **binary classification model** that predicts whether a person is likely to be at higher or lower risk of diabetes.
-
-Target definition:
-- `1` → Higher diabetes risk  
-- `0` → Lower diabetes risk
-  
-## Dataset
-
-The project uses the **PIMA Indians Diabetes dataset**, which contains medical data for female patients. The dataset includes the following features:
-
-- Pregnancies  
-- Glucose  
-- Blood Pressure  
-- Skin Thickness  
-- Insulin  
-- BMI  
-- Diabetes Pedigree Function  
-- Age  
-- Outcome (target variable)
-
-Some medical measurements in the dataset contain zero values that are not realistic in practice (for example, glucose or BMI equal to zero). These values are treated as missing during preprocessing.
-
-## Data Preprocessing
-
-Before training the model, the following preprocessing steps are performed:
-
-- Medically invalid zero values are replaced with missing values
-- Missing values are filled using median imputation
-- All numerical features are standardized to ensure fair contribution to the model
-
-These steps help make the model more reliable and closer to real-world conditions.
+# ✈️ Airline Demand Forecasting  
+**Time Series Forecasting | Statistical Models | Machine Learning | Streamlit**
 
 ---
 
-## Model Building
+## 📌 Project Overview
+This project demonstrates an **end-to-end time-series forecasting workflow** using historical airline passenger data.  
+The goal is to forecast future passenger demand, compare multiple forecasting approaches, select the most reliable model, and present results through an interactive Streamlit dashboard.
 
-A **Support Vector Machine (SVM)** classifier is used for this project.
+The project focuses on:
+- correct handling of time-series data  
+- realistic, time-aware model evaluation  
+- clear model selection decisions  
+- communication of forecast uncertainty  
 
-The model is built using a pipeline that includes:
-- Data imputation
-- Feature scaling
-- SVM classification
+---
 
-Model hyperparameters such as kernel type, regularization strength, and class weighting are tuned using cross-validation.
+## 🎯 Problem Statement
+Accurate passenger demand forecasting is essential for:
+- capacity planning  
+- staffing decisions  
+- budgeting and risk management  
 
-To make the predictions easier to interpret, the model is **calibrated** so that it outputs probability scores instead of just class labels.
+This project answers:
+- Which forecasting model performs best on unseen future data?  
+- How confident can we be in the predictions?
 
-## Decision Threshold Selection
+---
 
-Instead of using a default threshold of 0.5, the classification threshold is selected based on **recall-oriented evaluation**. This approach is more suitable for screening problems, where missing a high-risk case can be more costly than a false alarm.
+## 📊 Dataset Description
+The dataset used is a **publicly available airline passenger time-series dataset**, commonly used as a benchmark in forecasting problems.
 
-The chosen threshold is saved and reused by the application.
+**Key characteristics:**
+- Monthly data from **1949 to 1960**
+- Target variable: **number of airline passengers**
+- Clear **long-term growth** and **yearly seasonality**
 
-## Model Evaluation
+This dataset is well suited for comparing baseline, statistical, and machine learning forecasting approaches.
 
-The model is evaluated using multiple metrics to understand its behavior from different angles:
+---
 
-- ROC-AUC  
-- Precision-Recall AUC  
-- Accuracy  
-- Precision and Recall  
-- Confusion Matrix  
+## 🧠 Modeling Approach
 
-Evaluation results are stored and displayed inside the application for transparency.
+### Baseline Models
+- Naive Forecast  
+- Seasonal Naive Forecast  
 
-## Streamlit Deployment (Current Implementation)
+Used as benchmarks to validate whether advanced models provide meaningful improvement.
 
-The trained and calibrated model is deployed using **Streamlit**, providing a simple web-based user interface.
+### Statistical Models
+- **ETS (Holt-Winters)** – explicitly models trend and yearly seasonality  
+- **ARIMA** – classical time-series model used for comparison  
 
-The Streamlit app:
-- Collects patient input through form fields
-- Validates suspicious or invalid inputs
-- Runs the trained ML model for inference
-- Displays probability-based risk results
-- Shows model metrics and configuration in the sidebar
+### Machine Learning Model
+- **XGBoost**
+- Uses **lag-based features** to transform the time series into a supervised learning problem  
 
-This deployment demonstrates how a machine learning model can move beyond notebooks and be used in an interactive application.
+---
 
-## Project Structure
+## 📈 Evaluation Strategy
+- **Walk-forward validation** (time-series equivalent of cross-validation)
+- Preserves temporal order and avoids future data leakage
+- Mimics real-world forecasting scenarios
 
-- `app.py` – Streamlit application used for prediction and visualization  
-- `train.py` – Script used to train and tune the machine learning model  
-- `evaluate.py` – Script used to select decision thresholds and evaluate performance  
-- `models/` – Saved model and threshold files  
-- `reports/` – Stored evaluation metrics  
-- `requirements.txt` – Project dependencies  
+**Metrics used:**
+- RMSE  
+- MAE  
+- MAPE  
 
-## What This Project Demonstrates
+---
 
-- Understanding of the full machine learning workflow  
-- Handling of real-world data quality issues  
-- Use of probability-based predictions instead of hard labels  
-- Importance of threshold selection in classification problems  
-- Ability to deploy ML models as usable applications
-  
-## Future Scope (Planned Improvements)
+## ✅ Model Selection
+All models were evaluated using the same walk-forward framework.
 
-As a future enhancement, this project can be extended in the following simple and practical ways:
+- **ETS (Holt-Winters)** achieved the lowest average forecast error  
+- Selected as the **final production forecast**  
+- Other models retained for comparison and monitoring  
 
-- Create a basic backend API using FastAPI for model predictions
-- Package the API using Docker
-- Deploy the Docker container on AWS (for example, on an EC2 instance)
-- Connect the Streamlit app to the AWS-hosted API instead of loading the model locally
+---
 
-These improvements are planned to explore **basic cloud deployment concepts using Docker and AWS**, without adding unnecessary complexity.
-## Disclaimer
+## 📉 Forecast Uncertainty
+Forecasting is inherently uncertain.  
+To address this, **confidence intervals** were added to the final forecast:
 
-This project is for educational and demonstration purposes only. It is not intended for medical diagnosis or clinical decision-making.
+- Final Forecast → best estimate  
+- Lower Bound → pessimistic scenario  
+- Upper Bound → optimistic scenario  
+
+This enables planning for both expected and extreme outcomes.
+
+---
+
+## 🖥️ Deployment
+An interactive **Streamlit dashboard** was built to:
+- visualize historical passenger trends  
+- compare forecasts from multiple models  
+- present the selected final forecast  
+- display confidence intervals  
+- export forecast results as a CSV  
+
+---
+
+## 🛠️ Tech Stack
+- Python  
+- Pandas, NumPy  
+- statsmodels (ETS, ARIMA)  
+- XGBoost  
+- Streamlit  
+- joblib  
+
+---
+
+## 🎓 Skills Demonstrated
+- Time Series Analysis  
+- Demand Forecasting  
+- Statistical Modeling  
+- Machine Learning  
+- Feature Engineering  
+- Model Evaluation & Validation  
+- Forecast Uncertainty Estimation  
+- Data Visualization  
+- Model Deployment  
+
+---
+
+## 🔮 Future Scope (MLOps & Productionization)
+- Integrate **MLflow** for experiment tracking and model registry  
+- Package the final model as an API using **BentoML**  
+- Add automated retraining as new data becomes available  
+- Monitor forecast error and detect model drift  
+- Incorporate external features such as holidays or promotions  
+- Support user-uploaded time-series datasets  
+
+---
+
+## 🚀 Live App
+👉 https://airline-demand-forecasting.streamlit.app/
+
+---
+
+### ✅ Final Note
+This project emphasizes **correct forecasting methodology, evaluation, and communication**, while remaining flexible for future MLOps and production extensions.
