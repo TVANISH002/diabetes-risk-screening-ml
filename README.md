@@ -1,142 +1,148 @@
-# ✈️ Airline Demand Forecasting  
-**Time Series Forecasting | Statistical Models | Machine Learning | Streamlit**
+# 🩺 Diabetes Risk Screening using Machine Learning
+
+An end-to-end machine learning application that estimates **diabetes risk** from basic
+patient health indicators.  
+The project focuses on **practical ML system design**, emphasizing evaluation,
+interpretability, and deployment rather than model training alone.
+
+⚠️ This application is built for learning and demonstration purposes only and is **not medical advice**.
 
 ---
 
-## 📌 Project Overview
-This project demonstrates an **end-to-end time-series forecasting workflow** using historical airline passenger data.  
-The goal is to forecast future passenger demand, compare multiple forecasting approaches, select the most reliable model, and present results through an interactive Streamlit dashboard.
+## Problem Statement
+Diabetes is a chronic condition where early screening and risk awareness can support
+timely intervention. Using historical patient health data, this project builds a
+binary classification model to estimate whether an individual is at **higher or lower
+risk** of diabetes based on commonly available medical features.
 
-The project focuses on:
-- correct handling of time-series data  
-- realistic, time-aware model evaluation  
-- clear model selection decisions  
-- communication of forecast uncertainty  
-
----
-
-## 🎯 Problem Statement
-Accurate passenger demand forecasting is essential for:
-- capacity planning  
-- staffing decisions  
-- budgeting and risk management  
-
-This project answers:
-- Which forecasting model performs best on unseen future data?  
-- How confident can we be in the predictions?
+**Target definition**
+- `1` → Higher diabetes risk  
+- `0` → Lower diabetes risk  
 
 ---
 
-## 📊 Dataset Description
-The dataset used is a **publicly available airline passenger time-series dataset**, commonly used as a benchmark in forecasting problems.
+## Dataset
+The project uses the **PIMA Indians Diabetes Dataset**, which contains patient-level
+medical attributes commonly used for diabetes risk modeling.
 
-**Key characteristics:**
-- Monthly data from **1949 to 1960**
-- Target variable: **number of airline passengers**
-- Clear **long-term growth** and **yearly seasonality**
+**Features**
+- Pregnancies  
+- Glucose  
+- Blood Pressure  
+- Skin Thickness  
+- Insulin  
+- BMI  
+- Diabetes Pedigree Function  
+- Age  
 
-This dataset is well suited for comparing baseline, statistical, and machine learning forecasting approaches.
-
----
-
-## 🧠 Modeling Approach
-
-### Baseline Models
-- Naive Forecast  
-- Seasonal Naive Forecast  
-
-Used as benchmarks to validate whether advanced models provide meaningful improvement.
-
-### Statistical Models
-- **ETS (Holt-Winters)** – explicitly models trend and yearly seasonality  
-- **ARIMA** – classical time-series model used for comparison  
-
-### Machine Learning Model
-- **XGBoost**
-- Uses **lag-based features** to transform the time series into a supervised learning problem  
+Some medical features contain **invalid zero values** (e.g., glucose or BMI = 0).
+These are treated as missing values during preprocessing.
 
 ---
 
-## 📈 Evaluation Strategy
-- **Walk-forward validation** (time-series equivalent of cross-validation)
-- Preserves temporal order and avoids future data leakage
-- Mimics real-world forecasting scenarios
+## Modeling Approach
+The project follows a complete machine learning lifecycle.
 
-**Metrics used:**
-- RMSE  
-- MAE  
-- MAPE  
+- Medical features with invalid zero values are replaced with missing values and
+  imputed using median statistics  
+- All numerical features are standardized to support distance-based models  
+- A **Support Vector Machine (SVM)** classifier is trained using a pipeline that
+  combines preprocessing and modeling  
+- Hyperparameters such as kernel type, regularization strength, and class weighting
+  are tuned using cross-validation  
 
----
-
-## ✅ Model Selection
-All models were evaluated using the same walk-forward framework.
-
-- **ETS (Holt-Winters)** achieved the lowest average forecast error  
-- Selected as the **final production forecast**  
-- Other models retained for comparison and monitoring  
+To improve interpretability, predicted probabilities are **calibrated** before
+deployment.  
+Instead of relying on a default 0.50 decision threshold, the classification threshold
+is selected using **recall-based evaluation**, which better reflects screening-style
+requirements.
 
 ---
 
-## 📉 Forecast Uncertainty
-Forecasting is inherently uncertain.  
-To address this, **confidence intervals** were added to the final forecast:
+## Model Evaluation
+The model is evaluated using multiple metrics to understand real-world behavior:
 
-- Final Forecast → best estimate  
-- Lower Bound → pessimistic scenario  
-- Upper Bound → optimistic scenario  
+- ROC-AUC  
+- Precision–Recall AUC  
+- Precision, Recall, and Accuracy  
+- Confusion Matrix  
 
-This enables planning for both expected and extreme outcomes.
-
----
-
-## 🖥️ Deployment
-An interactive **Streamlit dashboard** was built to:
-- visualize historical passenger trends  
-- compare forecasts from multiple models  
-- present the selected final forecast  
-- display confidence intervals  
-- export forecast results as a CSV  
+Evaluation artifacts are stored and reused by the application to improve transparency.
+Threshold tuning helps balance false negatives and false positives, which is especially
+important in healthcare-style screening problems.
 
 ---
 
-## 🛠️ Tech Stack
-- Python  
-- Pandas, NumPy  
-- statsmodels (ETS, ARIMA)  
-- XGBoost  
-- Streamlit  
-- joblib  
+## Streamlit Deployment (User Interface)
+The trained and calibrated model is deployed using **Streamlit**, providing an
+interactive web interface.
+
+The application allows users to:
+- Enter patient health information  
+- Receive an estimated diabetes risk probability  
+- View screening results categorized as **Lower**, **Moderate**, or **Higher** risk  
+- Review model details and evaluation metrics in the sidebar  
+
+This demonstrates how a machine learning model can be packaged as a **usable
+decision-support tool**, rather than remaining as a notebook.
 
 ---
 
-## 🎓 Skills Demonstrated
-- Time Series Analysis  
-- Demand Forecasting  
-- Statistical Modeling  
-- Machine Learning  
-- Feature Engineering  
-- Model Evaluation & Validation  
-- Forecast Uncertainty Estimation  
-- Data Visualization  
-- Model Deployment  
+## API Design (FastAPI)
+In addition to the Streamlit interface, the project includes a **FastAPI-based inference
+service** (`api.py`) to demonstrate scalable system design.
+
+The API:
+- Loads the same trained and calibrated model used by Streamlit  
+- Exposes prediction endpoints for programmatic access  
+- Automatically generates OpenAPI (Swagger) documentation  
+- Separates model inference from the user interface  
+
+This API is currently used for architectural demonstration and local development.
 
 ---
 
-## 🔮 Future Scope (MLOps & Productionization)
-- Integrate **MLflow** for experiment tracking and model registry  
-- Package the final model as an API using **BentoML**  
-- Add automated retraining as new data becomes available  
-- Monitor forecast error and detect model drift  
-- Incorporate external features such as holidays or promotions  
-- Support user-uploaded time-series datasets  
+## Cloud Deployment Roadmap (AWS)
+The project is structured to support future cloud deployment. Planned extensions include:
+
+- Containerizing the FastAPI service using Docker  
+- Deploying the API on AWS (EC2, ECS, or Elastic Beanstalk)  
+- Storing trained model artifacts in Amazon S3  
+- Using the Streamlit app as a frontend consuming the cloud-hosted API  
+
+While the current deployment focuses on Streamlit for simplicity, the presence of an
+API layer demonstrates **production readiness**.
 
 ---
 
-## 🚀 Live App
-👉 https://airline-demand-forecasting.streamlit.app/
+## Project Structure
+- `app.py` – Streamlit application for interactive inference  
+- `api.py` – FastAPI service for model inference  
+- `train.py` – Model training and hyperparameter tuning  
+- `evaluate.py` – Threshold selection and evaluation  
+- `models/` – Saved model and threshold artifacts  
+- `reports/` – Stored evaluation metrics  
+- `requirements.txt` – Project dependencies  
 
 ---
 
-### ✅ Final Note
-This project emphasizes **correct forecasting methodology, evaluation, and communication**, while remaining flexible for future MLOps and production extensions.
+## Key Learnings
+- Real-world data requires careful preprocessing and validation  
+- Probability calibration improves interpretability of predictions  
+- Threshold selection is critical in screening-style applications  
+- Separating UI and backend improves scalability and maintainability  
+- Deployment surfaces usability and modeling limitations early  
+
+---
+
+## Future Improvements
+- Add baseline model comparisons (Logistic Regression, Tree-based models)  
+- Perform feature importance and explainability analysis  
+- Deploy the FastAPI service on AWS  
+- Add monitoring and logging for production inference  
+
+---
+
+## Disclaimer
+This project is for educational and demonstration purposes only.
+It is not intended for medical diagnosis or clinical decision-making.
