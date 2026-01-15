@@ -1,3 +1,4 @@
+import os
 import json
 from pathlib import Path
 
@@ -11,18 +12,25 @@ st.set_page_config(page_title="Diabetes Risk Screening", layout="centered")
 st.title("Diabetes Risk Screening (Machine Learning)")
 st.caption("Educational screening tool — not medical advice.")
 
-API_URL = "http://127.0.0.1:8000"
+# Streamlit Cloud/Render: set this in Streamlit Secrets:
+# API_URL="https://your-fastapi-service.onrender.com"
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000").rstrip("/")
+
 METRICS_PATH = Path("reports/metrics.json")
+
+# Render free services may sleep -> longer timeouts
+GET_TIMEOUT = 20
+POST_TIMEOUT = 30
 
 # ----------------------------
 # Helpers
 # ----------------------------
-def api_get(path: str, timeout: int = 5):
+def api_get(path: str, timeout: int = GET_TIMEOUT):
     r = requests.get(f"{API_URL}{path}", timeout=timeout)
     r.raise_for_status()
     return r.json()
 
-def api_post(path: str, payload: dict, timeout: int = 10):
+def api_post(path: str, payload: dict, timeout: int = POST_TIMEOUT):
     r = requests.post(f"{API_URL}{path}", json=payload, timeout=timeout)
     r.raise_for_status()
     return r.json()
@@ -35,8 +43,9 @@ def load_local_metrics():
             return None
     return None
 
-def show_run_commands():
+def show_local_run_commands():
     st.code(
+        "Local run (two terminals)\n\n"
         "Terminal 1 (FastAPI):\n"
         "uvicorn API:app --reload --host 127.0.0.1 --port 8000\n\n"
         "Terminal 2 (Streamlit):\n"
@@ -44,69 +53,86 @@ def show_run_commands():
     )
 
 # ----------------------------
-# Sidebar
+# Sidebar: API + Metrics
 # ----------------------------
 metrics = load_local_metrics()
-threshold = 0.5
 api_ok = False
+threshold = 0.5
+api_error = None
 
 with st.sidebar:
     st.subheader("API Status")
 
-    # Quick connect test
+    st.caption("Current API base URL:")
+    st.code(API_URL)
+
+    # Health check
     try:
         health = api_get("/health")
         api_ok = health.get("status") == "ok"
     except Exception as e:
-        st.error("FastAPI is not reachable ❌")
-        show_run_commands()
-        st.caption(f"Error: {e}")
+        api_ok = False
+        api_error = str(e)
 
     if api_ok:
         st.success("FastAPI is running ✅")
 
-        # Meta info
+        # Meta / threshold
         try:
             meta = api_get("/meta")
             threshold = float(meta.get("threshold", 0.5))
-            st.markdown("**Model Info (from FastAPI /meta)**")
+            st.markdown("**Model Info (from API)**")
             st.write("Model: Calibrated SVM (screening-oriented)")
             st.write(f"Threshold: **{threshold:.2f}**")
         except Exception:
             st.warning("Could not fetch /meta. Using default threshold 0.50")
 
-        # Local metrics (optional)
-        if metrics:
-            st.divider()
-            st.markdown("**Test Metrics (local reports/metrics.json)**")
-            st.write(f"ROC-AUC: {metrics.get('roc_auc', 0):.3f}")
-            st.write(f"PR-AUC: {metrics.get('pr_auc', 0):.3f}")
-            st.write(f"Accuracy: {metrics.get('accuracy', 0):.3f}")
-            st.write(f"Recall: {metrics.get('recall', 0):.3f}")
-            st.write(f"Precision: {metrics.get('precision', 0):.3f}")
+        st.link_button("Open Swagger (API docs)", f"{API_URL}/docs")
+
+    else:
+        st.error("FastAPI is not reachable ❌")
+        if api_error:
+            st.caption("Error:")
+            st.code(api_error)
+
+        st.info("If you're running locally, start FastAPI + Streamlit like this:")
+        show_local_run_commands()
+
+        st.divider()
+        st.caption("On Streamlit Cloud, 127.0.0.1 will not work. Use a public Render URL in Secrets.")
+
+    # Local metrics (optional)
+    if metrics:
+        st.divider()
+        st.markdown("**Test Metrics (local reports/metrics.json)**")
+        st.write(f"ROC-AUC: {metrics.get('roc_auc', 0):.3f}")
+        st.write(f"PR-AUC: {metrics.get('pr_auc', 0):.3f}")
+        st.write(f"Accuracy: {metrics.get('accuracy', 0):.3f}")
+        st.write(f"Recall: {metrics.get('recall', 0):.3f}")
+        st.write(f"Precision: {metrics.get('precision', 0):.3f}")
 
     st.divider()
     st.caption("Disclaimer: For learning/demo only. Not medical advice.")
 
 # ----------------------------
-# Connection check (main page)
+# Connection Check (Main)
 # ----------------------------
 st.subheader("Connection Check")
-cc1, cc2 = st.columns(2)
 
-with cc1:
+col1, col2 = st.columns(2)
+
+with col1:
     if st.button("Check /health"):
         try:
-            r = requests.get(f"{API_URL}/health", timeout=5)
-            st.success(f"Connected ✅ ({r.status_code})")
-            st.json(r.json())
+            out = api_get("/health")
+            st.success("Connected ✅")
+            st.json(out)
         except Exception as e:
             st.error("Not connected ❌")
-            st.write(e)
+            st.code(str(e))
 
-with cc2:
-    if st.button("Open Swagger link"):
-        st.write(f"{API_URL}/docs")
+with col2:
+    st.link_button("Open Swagger link", f"{API_URL}/docs")
 
 st.divider()
 
@@ -137,12 +163,14 @@ if bp == 0:
 for w in warnings:
     st.warning(w)
 
+st.divider()
+
 # ----------------------------
 # Prediction via FastAPI
 # ----------------------------
 st.subheader("Prediction")
 
-# Optional quick test button to force a POST /predict and show proof
+# Proof button (good for recruiters)
 if st.button("TEST /predict (sample payload)"):
     sample_payload = {
         "Pregnancies": 1,
@@ -157,19 +185,18 @@ if st.button("TEST /predict (sample payload)"):
     try:
         st.write("Calling API /predict...")
         out = api_post("/predict", sample_payload)
-        st.success("Got response from API ✅ (check FastAPI terminal for POST /predict 200 OK)")
+        st.success("Got response from API ✅")
         st.json(out)
     except Exception as e:
         st.error("Predict test failed ❌")
-        st.write(e)
+        st.code(str(e))
 
-# Normal UI flow
 run = st.button("Run Screening")
 
 if run:
     if not api_ok:
-        st.error("FastAPI is not reachable. Start the API first.")
-        show_run_commands()
+        st.error("FastAPI is not reachable. Fix API_URL or start the API.")
+        show_local_run_commands()
     else:
         payload = {
             "Pregnancies": int(pregnancies),
@@ -183,9 +210,7 @@ if run:
         }
 
         try:
-            st.write("Calling API /predict...")  # <-- proof on UI
             out = api_post("/predict", payload)
-            st.success("Response received ✅ (check FastAPI terminal for POST /predict 200 OK)")
 
             risk = float(out.get("risk", 0.0))
             thr = float(out.get("threshold", threshold))
@@ -205,15 +230,15 @@ if run:
                 st.json(out)
 
         except requests.exceptions.HTTPError as e:
-            st.error("API returned an error response (validation/server).")
+            st.error("API returned an error response.")
             try:
                 st.json(e.response.json())
             except Exception:
-                st.write(str(e))
+                st.code(str(e))
+
         except requests.exceptions.RequestException as e:
-            st.error("FastAPI is not reachable. Start the API first.")
-            show_run_commands()
-            st.caption(f"Error: {e}")
+            st.error("Request failed (API unreachable / timeout).")
+            st.code(str(e))
 
 st.markdown(
     "Disclaimer: This app is for learning and demonstration only and is not a substitute for professional medical advice."
