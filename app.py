@@ -1,50 +1,118 @@
 import json
-import joblib
-import pandas as pd
-import streamlit as st
 from pathlib import Path
 
+import requests
+import streamlit as st
+
+# ----------------------------
+# Config
+# ----------------------------
 st.set_page_config(page_title="Diabetes Risk Screening", layout="centered")
 st.title("Diabetes Risk Screening (Machine Learning)")
 st.caption("Educational screening tool — not medical advice.")
 
-#Load model 
-model = joblib.load("models/diabetes_pipeline.joblib")
+API_URL = "http://127.0.0.1:8000"
+METRICS_PATH = Path("reports/metrics.json")
 
-#Load threshold
-THRESHOLD = 0.5
-try:
-    with open("models/threshold.json") as f:
-        THRESHOLD = float(json.load(f).get("threshold", 0.5))
-except Exception:
-    THRESHOLD = 0.5
+# ----------------------------
+# Helpers
+# ----------------------------
+def api_get(path: str, timeout: int = 5):
+    r = requests.get(f"{API_URL}{path}", timeout=timeout)
+    r.raise_for_status()
+    return r.json()
 
-#Load metrics for sidebar(if it is available)
-metrics_path = Path("reports/metrics.json")
-metrics = None
-if metrics_path.exists():
-    try:
-        metrics = json.loads(metrics_path.read_text())
-    except Exception:
-        metrics = None
+def api_post(path: str, payload: dict, timeout: int = 10):
+    r = requests.post(f"{API_URL}{path}", json=payload, timeout=timeout)
+    r.raise_for_status()
+    return r.json()
 
-#Sidebar (Premium touch)
+def load_local_metrics():
+    if METRICS_PATH.exists():
+        try:
+            return json.loads(METRICS_PATH.read_text())
+        except Exception:
+            return None
+    return None
+
+def show_run_commands():
+    st.code(
+        "Terminal 1 (FastAPI):\n"
+        "uvicorn API:app --reload --host 127.0.0.1 --port 8000\n\n"
+        "Terminal 2 (Streamlit):\n"
+        "streamlit run app.py"
+    )
+
+# ----------------------------
+# Sidebar
+# ----------------------------
+metrics = load_local_metrics()
+threshold = 0.5
+api_ok = False
+
 with st.sidebar:
-    st.subheader("Model Info")
-    st.write("Model: Calibrated SVM (screening-oriented)")
-    st.write(f"Threshold: **{THRESHOLD:.2f}**")
+    st.subheader("API Status")
 
-    if metrics:
-        st.markdown("**Test Metrics**")
-        st.write(f"ROC-AUC: {metrics.get('roc_auc', 0):.3f}")
-        st.write(f"PR-AUC: {metrics.get('pr_auc', 0):.3f}")
-        st.write(f"Accuracy: {metrics.get('accuracy', 0):.3f}")
-        st.write(f"Recall: {metrics.get('recall', 0):.3f}")
-        st.write(f"Precision: {metrics.get('precision', 0):.3f}")
+    # Quick connect test
+    try:
+        health = api_get("/health")
+        api_ok = health.get("status") == "ok"
+    except Exception as e:
+        st.error("FastAPI is not reachable ❌")
+        show_run_commands()
+        st.caption(f"Error: {e}")
+
+    if api_ok:
+        st.success("FastAPI is running ✅")
+
+        # Meta info
+        try:
+            meta = api_get("/meta")
+            threshold = float(meta.get("threshold", 0.5))
+            st.markdown("**Model Info (from FastAPI /meta)**")
+            st.write("Model: Calibrated SVM (screening-oriented)")
+            st.write(f"Threshold: **{threshold:.2f}**")
+        except Exception:
+            st.warning("Could not fetch /meta. Using default threshold 0.50")
+
+        # Local metrics (optional)
+        if metrics:
+            st.divider()
+            st.markdown("**Test Metrics (local reports/metrics.json)**")
+            st.write(f"ROC-AUC: {metrics.get('roc_auc', 0):.3f}")
+            st.write(f"PR-AUC: {metrics.get('pr_auc', 0):.3f}")
+            st.write(f"Accuracy: {metrics.get('accuracy', 0):.3f}")
+            st.write(f"Recall: {metrics.get('recall', 0):.3f}")
+            st.write(f"Precision: {metrics.get('precision', 0):.3f}")
 
     st.divider()
     st.caption("Disclaimer: For learning/demo only. Not medical advice.")
 
+# ----------------------------
+# Connection check (main page)
+# ----------------------------
+st.subheader("Connection Check")
+cc1, cc2 = st.columns(2)
+
+with cc1:
+    if st.button("Check /health"):
+        try:
+            r = requests.get(f"{API_URL}/health", timeout=5)
+            st.success(f"Connected ✅ ({r.status_code})")
+            st.json(r.json())
+        except Exception as e:
+            st.error("Not connected ❌")
+            st.write(e)
+
+with cc2:
+    if st.button("Open Swagger link"):
+        st.write(f"{API_URL}/docs")
+
+st.divider()
+
+# ----------------------------
+# Inputs
+# ----------------------------
 st.subheader("Patient Inputs")
 
 c1, c2 = st.columns(2)
@@ -59,7 +127,6 @@ with c2:
     dpf = st.number_input("Diabetes Pedigree Function", 0.0, 3.0, 0.5)
     age = st.number_input("Age", 1, 120, 30)
 
-# Input validation
 warnings = []
 if glucose == 0:
     warnings.append("Glucose is 0 — in real screening this is typically missing/invalid.")
@@ -67,34 +134,86 @@ if bmi == 0:
     warnings.append("BMI is 0 — in real screening this is typically missing/invalid.")
 if bp == 0:
     warnings.append("Blood Pressure is 0 — in real screening this is typically missing/invalid.")
+for w in warnings:
+    st.warning(w)
 
-if warnings:
-    for w in warnings:
-        st.warning(w)
+# ----------------------------
+# Prediction via FastAPI
+# ----------------------------
+st.subheader("Prediction")
 
-if st.button("Run Screening"):
-    input_df = pd.DataFrame([{
-        "Pregnancies": pregnancies,
-        "Glucose": glucose,
-        "BloodPressure": bp,
-        "SkinThickness": skin,
-        "Insulin": insulin,
-        "BMI": bmi,
-        "DiabetesPedigreeFunction": dpf,
-        "Age": age
-    }])
+# Optional quick test button to force a POST /predict and show proof
+if st.button("TEST /predict (sample payload)"):
+    sample_payload = {
+        "Pregnancies": 1,
+        "Glucose": 120,
+        "BloodPressure": 70,
+        "SkinThickness": 20,
+        "Insulin": 80,
+        "BMI": 30.0,
+        "DiabetesPedigreeFunction": 0.5,
+        "Age": 30
+    }
+    try:
+        st.write("Calling API /predict...")
+        out = api_post("/predict", sample_payload)
+        st.success("Got response from API ✅ (check FastAPI terminal for POST /predict 200 OK)")
+        st.json(out)
+    except Exception as e:
+        st.error("Predict test failed ❌")
+        st.write(e)
 
-    risk = float(model.predict_proba(input_df)[0][1])
+# Normal UI flow
+run = st.button("Run Screening")
 
-    st.metric("Estimated Diabetes Risk (probability)", f"{risk:.2f}")
-
-    # Risk bands look more healthcare-like than binary
-    if risk < THRESHOLD:
-        st.success(f"Screening Result: Lower Risk (threshold={THRESHOLD:.2f})")
-    elif risk < max(THRESHOLD + 0.15, 0.35):
-        st.warning("Screening Result: Moderate Risk")
+if run:
+    if not api_ok:
+        st.error("FastAPI is not reachable. Start the API first.")
+        show_run_commands()
     else:
-        st.error("Screening Result: Higher Risk")
+        payload = {
+            "Pregnancies": int(pregnancies),
+            "Glucose": float(glucose),
+            "BloodPressure": float(bp),
+            "SkinThickness": float(skin),
+            "Insulin": float(insulin),
+            "BMI": float(bmi),
+            "DiabetesPedigreeFunction": float(dpf),
+            "Age": int(age),
+        }
+
+        try:
+            st.write("Calling API /predict...")  # <-- proof on UI
+            out = api_post("/predict", payload)
+            st.success("Response received ✅ (check FastAPI terminal for POST /predict 200 OK)")
+
+            risk = float(out.get("risk", 0.0))
+            thr = float(out.get("threshold", threshold))
+            label = out.get("screening_label", "unknown")
+            band = out.get("risk_band", "unknown")
+
+            st.metric("Estimated Diabetes Risk (probability)", f"{risk:.2f}")
+
+            if label == "lower_risk" or band == "low":
+                st.success(f"Screening Result: Lower Risk (threshold={thr:.2f})")
+            elif band == "moderate":
+                st.warning("Screening Result: Moderate Risk")
+            else:
+                st.error("Screening Result: Higher Risk")
+
+            with st.expander("View API response (raw JSON)"):
+                st.json(out)
+
+        except requests.exceptions.HTTPError as e:
+            st.error("API returned an error response (validation/server).")
+            try:
+                st.json(e.response.json())
+            except Exception:
+                st.write(str(e))
+        except requests.exceptions.RequestException as e:
+            st.error("FastAPI is not reachable. Start the API first.")
+            show_run_commands()
+            st.caption(f"Error: {e}")
 
 st.markdown(
     "Disclaimer: This app is for learning and demonstration only and is not a substitute for professional medical advice."
