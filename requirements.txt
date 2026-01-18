@@ -2,9 +2,9 @@ numpy
 pandas
 scikit-learn
 joblib
-matplotlib
+#matplotlib
 streamlit
 fastapi
 uvicorn
 pydantic
-
+requests
