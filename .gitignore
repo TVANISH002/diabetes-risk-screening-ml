@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+venv/
+.env
+
+.devcontainer/
+
 __pycache__/
 *.pyc
 
